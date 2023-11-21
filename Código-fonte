@@ -28,9 +28,11 @@ void setup() {
     Serial.begin(9600);
 
 
+
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 
     Ethernet.begin(mac);
+
 
   
   client.setServer(mqtt_server, 1883);
@@ -59,10 +61,13 @@ void loop() {
   
   inicializarTrigger();
 
-    float distancia = calcularDistancia();
+  
+  float distancia = calcularDistancia();
+
  
   desligarLEDs();
 
+  
   if (distancia < limite1) {
    
     alertas(distancia);
@@ -127,11 +132,11 @@ void inicializarTrigger() {
 
 void reconectar() {
   while (!client.connected()) {
-    Serial.print("Tentando se reconectar ao MQTT...");
+    Serial.print("Conectando ao broker MQTT...");
     if (client.connect("arduino-client")) {
-      Serial.println("Conectado ao MQTT");
+      Serial.println("Conectado ao broker com sucesso");
     } else {
-      Serial.print("Falha, rc=");
+      Serial.print("Falha, Não foi possível a conexão");
       Serial.print(client.state());
       Serial.println("Tentando novamente em 5 segundos...");
       delay(5000);
