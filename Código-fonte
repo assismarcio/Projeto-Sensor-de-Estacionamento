@@ -1,3 +1,7 @@
+#include <PubSubClient.h>
+#include <Ethernet.h>  
+
+
 #define LED1 6
 #define LED2 7
 #define LED3 8
@@ -5,105 +9,136 @@
 #define TRIGGER 11
 #define ECHO 12
 #define BUZZER 3
- 
+
 
 const float som = 34300.0; 
-const float limite1 = 30.0; 
-const float limite2 = 20.0;
-const float limite3 = 10.0;
-const float limite4 = 5.0;
- 
+const float limite1 = 50.0; 
+const float limite2 = 30.0;
+const float limite3 = 20.0;
+const float limite4 = 10.0;
+
+
+const char *mqtt_server = "test.mosquitto.org";
+const char *mqtt_topic = "mqtt - wokwi";
+
+EthernetClient ethClient;
+PubSubClient client(ethClient);
+
 void setup() {
- 
+    Serial.begin(9600);
 
-Serial.begin(9600);
- 
-pinMode(LED1, OUTPUT);
-pinMode(LED2, OUTPUT);
-pinMode(LED3, OUTPUT);
-pinMode(LED4, OUTPUT);
-pinMode(ECHO, INPUT);
-pinMode(TRIGGER, OUTPUT);
-pinMode(BUZZER, OUTPUT);
- 
-desligarLEDs();
- 
+
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+    Ethernet.begin(mac);
+
+  
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
+  
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+  pinMode(ECHO, INPUT);
+  pinMode(TRIGGER, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+
+  
+  desligarLEDs();
 }
- 
+
 void loop() {
- 
-inicializarTrigger();
- 
-float distancia = calcularDistancia ();
- 
-desligarLEDs();
- 
-if (distancia < limite1){
+  if (!client.connected()) {
+    reconectar();
+  }
 
-alertas(distancia);
-}
+  client.loop();
+
+  
+  inicializarTrigger();
+
+    float distancia = calcularDistancia();
  
-}
- 
-void desligarLEDs()
-{
-digitalWrite(LED1, LOW);
-digitalWrite(LED2, LOW);
-digitalWrite(LED3, LOW);
-digitalWrite(LED4, LOW);
-}
- 
-void alertas (float distancia){
- 
-if (distancia < limite1 && distancia >= limite2){
- 
-// Ligue o LED 1
-digitalWrite(LED1, HIGH);
-tone(BUZZER, 1500, 50);
+  desligarLEDs();
+
+  if (distancia < limite1) {
+   
+    alertas(distancia);
+  }
 }
 
-else if (distancia < limite2 && distancia >= limite3){
- 
-// Ligue o LED 2
-digitalWrite(LED1, HIGH);
-digitalWrite(LED2, HIGH);
-tone(BUZZER, 2000, 100);
+void desligarLEDs() {
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+  digitalWrite(LED4, LOW);
 }
- 
-else if (distancia < limite3 && distancia >= limite4){
- 
-// Ligue o LED 3
-digitalWrite(LED1, HIGH);
-digitalWrite(LED2, HIGH);
-digitalWrite(LED3, HIGH);
-tone(BUZZER, 2750, 150);
+
+void alertas(float distancia) {
+  if (distancia < limite1 && distancia >= limite2) {
+    // Ligue o LED 1
+    digitalWrite(LED1, HIGH);
+    tone(BUZZER, 1500, 50);
+  } else if (distancia < limite2 && distancia >= limite3) {
+    // Ligue o LED 2
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
+    tone(BUZZER, 2000, 100);
+  } else if (distancia < limite3 && distancia >= limite4) {
+    // Ligue o LED 3
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
+    digitalWrite(LED3, HIGH);
+    tone(BUZZER, 2750, 150);
+  } else if (distancia < limite4) {
+    // Ligue o LED 4
+    digitalWrite(LED1, HIGH);
+    digitalWrite(LED2, HIGH);
+    digitalWrite(LED3, HIGH);
+    digitalWrite(LED4, HIGH);
+    tone(BUZZER, 3000, 200);
+  }
+
+  
+  char mensagem[10];
+  dtostrf(distancia, 4, 2, mensagem);
+  client.publish(mqtt_topic, mensagem);
 }
- 
-else if (distancia < limite4){
- 
-// Ligue o LED 4
-digitalWrite(LED1, HIGH);
-digitalWrite(LED2, HIGH);
-digitalWrite(LED3, HIGH);
-digitalWrite(LED4, HIGH);
-tone(BUZZER, 3000, 200);
+
+float calcularDistancia() {
+  unsigned long time = pulseIn(ECHO, HIGH);
+  float distancia = time * 0.000001 * som / 2.0;
+  Serial.print(distancia);
+  Serial.print("cm");
+  Serial.println();
+  delay(500);
+  return distancia;
 }
+
+void inicializarTrigger() {
+  digitalWrite(TRIGGER, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIGGER, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIGGER, LOW);
 }
- 
-float calcularDistancia(){
-unsigned long time = pulseIn(ECHO, HIGH);
-float distancia = time* 0.000001 * som / 2.0;
-Serial.print(distancia);
-Serial.print("cm");
-Serial.println();
-delay(500);
-return distancia;
+
+void reconectar() {
+  while (!client.connected()) {
+    Serial.print("Tentando se reconectar ao MQTT...");
+    if (client.connect("arduino-client")) {
+      Serial.println("Conectado ao MQTT");
+    } else {
+      Serial.print("Falha, rc=");
+      Serial.print(client.state());
+      Serial.println("Tentando novamente em 5 segundos...");
+      delay(5000);
+    }
+  }
 }
- 
-void inicializarTrigger(){
-digitalWrite(TRIGGER, LOW);
-delayMicroseconds(2);
-digitalWrite(TRIGGER, HIGH);
-delayMicroseconds(10);
-digitalWrite(TRIGGER, LOW);
+
+void callback(char *topic, byte *payload, unsigned int length) {
+  
 }
